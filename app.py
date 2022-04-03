@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, flash
 from flask_mysqldb import MySQL
 import mysql.connector
 from mysql.connector import MySQLConnection, Error
@@ -8,6 +8,7 @@ from datetime import date, datetime
 from senti import *
 
 app = Flask(__name__,static_url_path='',static_folder='static')
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 # Configure DB
 db = yaml.load(open('db.yaml'))
@@ -30,35 +31,22 @@ def index():
 # Inserts data to login table
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        userDetails = request.form
-        email = userDetails['email']
-        password = userDetails['password']
+    try:    
+        if request.method == 'POST':
+            userDetails = request.form
+            email = userDetails['email']
+            password = userDetails['password']
 
-        cur = mysqlcon.connection.cursor()
-        cur.execute("INSERT INTO login(email, pass) VALUES(%s, %s)",
-                    (email, password))
-        mysqlcon.connection.commit()
-        cur.close()
-        return redirect('/loginData')
-    return render_template('login.html')
-
-# This function displays the loginData
-
-# @app.route('/update',methods=['POST','GET'])
-# def update():
-#     if request.method=='POST':
-#         email = request.form['email']
-#         password = request.form['password']
-#         cur = mysqlcon.connection.cursor()
-#         cur.execute("""
-#                UPDATE login
-#                SET email=%s, password=%s
-#             """, (email, password))
-#         # flash("Data Updated Successfully")
-#         mysqlcon.connection.commit()
-#         return redirect(url_for('Index'))
-
+            cur = mysqlcon.connection.cursor()
+            cur.execute("INSERT INTO login(email, pass) VALUES(%s, %s)",
+                        (email, password))
+            mysqlcon.connection.commit()
+            cur.close()
+            return redirect('/loginData')
+        return render_template('login.html')
+    except:
+        return('<h1 style="text-align:center">Email is invalid/duplicate. Please try again!</h1?')
+        
 @app.route('/loginData')
 def loginData():
     cur = mysqlcon.connection.cursor()
@@ -89,7 +77,7 @@ def events():
         cur.execute("INSERT INTO event_table(event_name,event_date,venue,event_time,event_type) VALUES(%s,%s,%s,STR_TO_DATE(%s,'%%H:%%i'),%s)",(event_name,event_date,venue,event_time,event_type))
         mysqlcon.connection.commit()
         cur.close()
-        return('Entry is added!')
+        return redirect('/eventsData')
     return render_template('events.html')
 
 @app.route('/eventsData')
@@ -413,18 +401,50 @@ def registration():
         return redirect('/registrationData')
     return render_template('registration.html',emailTuple=emailTuple,event_no_Tuple=event_no_Tuple)
 
-#This fucntion displays registration table
+#This function displays registration table
 
 @app.route('/registrationData')
 def registrationData():
     cur=mysqlcon.connection.cursor()
     resultValue=cur.execute("SELECT fees,customer_name, mob_name, email, payment_mode, sr_no, college_name, register_receipt, event_name,event_no from registration")
     if resultValue>0:
-        accountDetails=cur.fetchall()
-        return render_template('accountData.html',accountDetails=accountDetails)
+        registrationDetails=cur.fetchall()
+        return render_template('registrationData.html',registrationDetails=registrationDetails)
     else:
         return('<h1 style="text-align:center"> No entry exists</h1>')
 
+@app.route('/team',methods=['GET','POST'])
+def team():
+    cur = mysqlcon.connection.cursor()
+    cur.execute("SELECT department_name from department")
+    departmentTuple = cur.fetchall()
+    mysqlcon.connection.commit()
+    
+    if request.method == 'POST':
+        teamDetails = request.form
+        member_name = teamDetails['member_name']
+        mob_num = teamDetails['mob_num']
+        department_name=teamDetails['department_name']
+        email = teamDetails['email']
+        team_member_id=teamDetails['team_member_id']
+        position=teamDetails['position']
+
+        cur = mysqlcon.connection.cursor()
+        cur.execute("INSERT INTO team(member_name,mob_num,department_name,email,team_member_id,position) VALUES(%s,%s,%s,%s,%s,%s)", (member_name,mob_num,department_name,email,team_member_id,position))
+        mysqlcon.connection.commit()
+        cur.close()
+        return redirect('/teamData')
+    return render_template('team.html', departmentTuple=departmentTuple)
+
+@app.route('/teamData')
+def teamData():
+    cur=mysqlcon.connection.cursor()
+    resultValue=cur.execute("SELECT member_name,mob_num,department_name,email,team_member_id,position FROM team")
+    if resultValue>0:
+        teamDetails=cur.fetchall()
+        return render_template('teamData.html',teamDetails=teamDetails)
+    else:
+        return('<h1 style="text-align:center"> No entry exists</h1>')
 
 @app.route('/department',methods=['GET','POST'])
 def department():
@@ -456,7 +476,11 @@ def departmentData():
     else:
         return('<h1 style="text-align:center"> No entry exists</h1>')
 
-@app.route('/filtervenue')
+#@app.route('/team',methods=['GET','POST'])
+#def team():
+
+      
+@app.route('/realfiltervenue')
 def filtven():
     try:
         connection = mysql.connector.connect(host='localhost',database='dbmsEventManagement',user='admin',password='password')
@@ -481,6 +505,48 @@ def filtven():
     #     venuelist.append(i)
     #     print("=====",venuelist)
     # return('venuelist')
+
+### Code for HTML Procedures
+@app.route('/procedures', methods=['GET','POST'])
+def procedures():
+    return render_template("procedures/procedures.html")
+
+@app.route('/calctotalfromevent', methods=['GET','POST'])
+def calctotalfromevent():
+    return render_template("procedures/calctotalfromevent.html")
+
+@app.route('/contactus', methods=['GET','POST'])
+def contactUs():
+    return render_template("procedures/contactus.html")
+
+@app.route('/eventfeedback', methods=['GET','POST'])
+def procedureEventFeedback():
+    return render_template("procedures/eventfeedback.html")
+
+@app.route('/eventsponsors', methods=['GET','POST'])
+def proceduresEventSponsors():
+    return render_template("procedures/eventsponsors.html")
+
+@app.route('/extractedusers', methods=['GET','POST'])
+def proceudureExtractedUsers():
+    return render_template("procedures/extractedusers.html")
+
+@app.route('/filtervenue', methods=['GET','POST'])
+def filtervenue():
+    return render_template("procedures/filtervenue.html")
+
+@app.route('/userbill', methods=['GET','POST'])
+def userbill():
+    return render_template("procedures/userbill.html")
+
+## For Functions
+@app.route('/event_spcount', methods=['GET','POST'])
+def Fevent_sponsorcount():
+    return render_template("procedures/event_spcount.html")
+
+@app.route('/event_count', methods=['GET','POST'])
+def Fevent_count():
+    return render_template("procedures/event_count.html")
 
 if __name__=='__main__':
     app.run(debug=True)   
